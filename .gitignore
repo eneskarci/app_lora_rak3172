@@ -1,0 +1,8 @@
+/build
+/zephyr
+/.cache
+.vscode/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+src/lorawan_keys.h
