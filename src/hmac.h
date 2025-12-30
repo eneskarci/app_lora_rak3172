@@ -4,14 +4,14 @@
 #include <stdint.h>
 
 /* =========================================================
- * 4. G?VENL?K (HMAC-SHA256)
+ * 4. GÜVENLİK (HMAC-SHA256)
  *
- * - HMAC ??kt?s?: 32 byte
- * - Hex string: 64 karakter (null terminator hari?)
+ * - HMAC çıktısı : 32 byte
+ * - Hex string   : 64 karakter (null terminator hariç)
  * ========================================================= */
 
 #define HMAC_SHA256_SIZE_BYTES   32
-#define HMAC_SHA256_HEX_SIZE     64   /* 32 byte -> 64 hex char */
+#define HMAC_SHA256_HEX_SIZE     64   /* 32 byte -> 64 hex karakter */
 
 /**
  * @brief HMAC-SHA256 hesaplar
@@ -21,7 +21,7 @@
  * @param data      Input data bytes
  * @param data_len  Input length
  * @param out_hash  Output buffer (32 bytes)
- * @return true     Ba?ar?l?
+ * @return true     Başarılı
  * @return false    Hata
  */
 bool hmac_sha256_compute(const uint8_t *key,
@@ -31,13 +31,13 @@ bool hmac_sha256_compute(const uint8_t *key,
                          uint8_t out_hash[HMAC_SHA256_SIZE_BYTES]);
 
 /**
- * @brief Binary -> hex string (k???k harf)
+ * @brief Binary -> hex string (küçük harf)
  *
  * @param bytes     Input binary
  * @param len       Input length
  * @param out_hex   Output buffer (en az 2*len + 1)
  * @param out_size  Output buffer size
- * @return true     Ba?ar?l?
+ * @return true     Başarılı
  * @return false    Hata
  */
 bool bytes_to_hex_string(const uint8_t *bytes,
