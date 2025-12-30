@@ -4,8 +4,9 @@
 #include <mbedtls/md.h>
 
 /* =========================================================
- * Dok?mana g?re TEST anahtar? (4.1)
- * ?retimde plaintext saklanmamal? (dok?man uyar?s?).
+ * Dokümana göre TEST anahtarı (4.1)
+ *
+ * Üretimde plaintext saklanmamalıdır (doküman uyarısı).
  * ========================================================= */
 static const char HMAC_SECRET_KEY_STR[] = "SensecapStm32WL55SecretKey2024";
 #define HMAC_KEY_SIZE 32
@@ -58,8 +59,10 @@ bool bytes_to_hex_string(const uint8_t *bytes,
 }
 
 /* =========================================================
- * (Opsiyonel) Dok?mandaki kullan?m desenini kolayla?t?ran helper
- * - ?imdilik main.c kullanm?yor; ileride payload ile birle?tirece?iz.
+ * (Opsiyonel) Dokümandaki kullanım desenini kolaylaştıran helper
+ *
+ * Şimdilik main.c tarafından kullanılmıyor.
+ * İleride payload ile birleştirilecektir.
  * ========================================================= */
 bool hmac_sha256_compute_doc_key(const uint8_t *data,
                                  size_t data_len,
