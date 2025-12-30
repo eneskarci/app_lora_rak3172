@@ -2,6 +2,8 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/lorawan/lorawan.h>
 #include <zephyr/random/random.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/watchdog.h>
 
 #include "lorawan_keys.h"
 #include "payload.h"
@@ -26,8 +28,64 @@ LOG_MODULE_REGISTER(app, LOG_LEVEL_INF);
 #define HUM_MIN_PERCENT           0.0f
 #define HUM_MAX_PERCENT         100.0f
 
+/* Watchdog timeout (ms) */
+#define WDT_TIMEOUT_MS          15000
+
 /* =========================================================
- * Random float (1 ondal?k)
+ * Watchdog init
+ * ========================================================= */
+static const struct device *wdt_dev;
+static int wdt_channel_id = -1;
+
+static void watchdog_init(void)
+{
+#if DT_HAS_ALIAS(wdt0)
+    wdt_dev = DEVICE_DT_GET(DT_ALIAS(wdt0));
+#elif DT_NODE_HAS_STATUS(DT_NODELABEL(iwdg), okay)
+    wdt_dev = DEVICE_DT_GET(DT_NODELABEL(iwdg));
+#else
+    wdt_dev = NULL;
+#endif
+
+    if (!wdt_dev || !device_is_ready(wdt_dev)) {
+        LOG_WRN("Watchdog device not ready / not found (continuing without WDT)");
+        return;
+    }
+
+    struct wdt_timeout_cfg cfg = {
+        .window = {
+            .min = 0,
+            .max = WDT_TIMEOUT_MS,
+        },
+        .flags = WDT_FLAG_RESET_SOC,
+    };
+
+    wdt_channel_id = wdt_install_timeout(wdt_dev, &cfg);
+    if (wdt_channel_id < 0) {
+        LOG_WRN("wdt_install_timeout failed (%d), continuing without WDT", wdt_channel_id);
+        wdt_channel_id = -1;
+        return;
+    }
+
+    int ret = wdt_setup(wdt_dev, 0);
+    if (ret < 0) {
+        LOG_WRN("wdt_setup failed (%d), continuing without WDT", ret);
+        wdt_channel_id = -1;
+        return;
+    }
+
+    LOG_INF("Watchdog enabled (timeout=%d ms)", WDT_TIMEOUT_MS);
+}
+
+static inline void watchdog_feed(void)
+{
+    if (wdt_dev && (wdt_channel_id >= 0)) {
+        (void)wdt_feed(wdt_dev, wdt_channel_id);
+    }
+}
+
+/* =========================================================
+ * Random float (1 ondalık)
  * ========================================================= */
 static float random_float_1dp(float min, float max)
 {
@@ -42,14 +100,20 @@ int main(void)
 
     LOG_INF("======================================");
     LOG_INF(" app_lora_rak3172 starting");
-    LOG_INF(" Warning-free build");
     LOG_INF("======================================");
 
+    watchdog_init();
+
+    /* LoRaWAN start:
+       - CONFIG_LORAWAN_NVM_SETTINGS=y ise daha önceki context/settings varsa restore eder. */
     ret = lorawan_start();
     if (ret < 0) {
         LOG_ERR("lorawan_start failed: %d", ret);
         return 0;
     }
+
+    /* Confirmed mesaj retry sayısını stack’e bildir */
+    (void)lorawan_set_conf_msg_tries(UPLINK_MAX_RETRIES);
 
     struct lorawan_join_config join_cfg = { 0 };
     join_cfg.mode = LORAWAN_ACT_OTAA;
@@ -60,6 +124,7 @@ int main(void)
     bool joined = false;
 
     for (int i = 1; i <= JOIN_MAX_RETRIES; i++) {
+        watchdog_feed();
         LOG_INF("Join attempt %d/%d", i, JOIN_MAX_RETRIES);
 
         ret = lorawan_join(&join_cfg);
@@ -75,6 +140,7 @@ int main(void)
     }
 
     while (1) {
+        watchdog_feed();
 
         float temperature = random_float_1dp(TEMP_MIN_C, TEMP_MAX_C);
         float humidity    = random_float_1dp(HUM_MIN_PERCENT, HUM_MAX_PERCENT);
@@ -115,17 +181,16 @@ int main(void)
                             &final_len);
 
         if (joined) {
-            for (int a = 1; a <= UPLINK_MAX_RETRIES; a++) {
-                ret = lorawan_send(LORAWAN_APP_PORT,
-                                   final_payload,
-                                   final_len,
-                                   true);
+            /* Confirmed uplink */
+            ret = lorawan_send(LORAWAN_APP_PORT,
+                               (uint8_t *)final_payload,
+                               (uint8_t)final_len,
+                               LORAWAN_MSG_CONFIRMED);
 
-                if (ret == 0) {
-                    break;
-                }
-
-                k_sleep(K_MSEC(UPLINK_RETRY_DELAY_MS));
+            if (ret == 0) {
+                LOG_INF("Uplink sent");
+            } else {
+                LOG_WRN("Uplink failed (%d)", ret);
             }
         }
 
