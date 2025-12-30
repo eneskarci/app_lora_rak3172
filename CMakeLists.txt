@@ -4,7 +4,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app_lora_rak3172)
 
 target_sources(app PRIVATE
-    src/main.c
-    src/payload.c
-    src/hmac.c
+  src/main.c
+  src/payload.c
+  src/hmac.c
 )
